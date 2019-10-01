@@ -40,6 +40,26 @@ local function list_remote_branches(dir)
     :sort():dedupe()
 end
 
+local function unstaged_files(token)
+    local res = w()
+
+    -- Try to resolve .git directory location
+    local git_dir = git.get_git_dir()
+
+    if git_dir == nil then return res end
+
+    local f = io.popen("git ls-files -m 2>nul")
+    if f == nil then return {} end
+
+    for line in f:lines() do
+        table.insert(res, line)
+    end
+
+    f:close()
+
+    return res
+end
+
 ---
  -- Lists local branches for git repo in git_dir directory.
  --
@@ -122,11 +142,21 @@ local function local_or_remote_branches(token)
     end)
 end
 
+local function add_spec_generator(token)
+    -- local files = matchers.files(token)
+    --     :filter(function(file)
+    --         return path.is_real_dir(file)
+    --     end)
+    local files = unstaged_files()
+    return files
+end
+
 local function checkout_spec_generator(token)
-    local files = matchers.files(token)
-        :filter(function(file)
-            return path.is_real_dir(file)
-        end)
+    -- local files = matchers.files(token)
+    --     :filter(function(file)
+    --         return path.is_real_dir(file)
+    --     end)
+    local files = unstaged_files()
 
     local git_dir = git.get_git_common_dir()
 
@@ -342,7 +372,7 @@ local merge_strategies = parser({
 local git_parser = parser(
     {
         {alias},
-        "add" .. parser({matchers.files},
+        "add" .. parser({add_spec_generator},
             "-n", "--dry-run",
             "-v", "--verbose",
             "-f", "--force",
